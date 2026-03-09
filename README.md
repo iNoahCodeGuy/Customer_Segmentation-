@@ -6,6 +6,10 @@ Telecom companies manage millions of customers across different service tiers, b
 
 **The core question:** Given only demographic and account-level data, can we classify customers into their correct service tier — and more importantly, can we understand *what drives* that classification?
 
+## Why Decision Trees?
+
+The first priority is understanding *what drives* segmentation, not just predicting it. Decision trees were chosen because they produce human-readable rules — "if education > 3 and tenure > 40, classify as segment C" — and rank features by how much they contribute to the classification. That directly answers the business question. They also handle mixed feature types natively and make no assumptions about linear relationships between variables.
+
 ## The Approach
 
 A systematic breakdown of the problem into four stages:
@@ -14,7 +18,7 @@ A systematic breakdown of the problem into four stages:
 
 - **Dataset:** 1,000 telecom customers, 11 features, 4-class target (`custcat`: A, B, C, D)
 - **Features:** region, tenure, age, income, marital status, address length, education level, employment years, retirement status, gender, household size
-- **Quality check:** Zero missing values. Roughly balanced classes (218–281 per category). No preprocessing surprises.
+- **Quality check:** Zero missing values. Roughly balanced classes (217–281 per category). No preprocessing surprises.
 
 <p align="center">
   <img src="figures/fig1_custcat_dist.png" width="500"/>
@@ -25,7 +29,7 @@ A systematic breakdown of the problem into four stages:
 
 Three questions before modeling:
 
-**Are features informative?** Tenure and income distributions shift across segments, but no single feature cleanly separates all four groups. This tells us the classification boundary is multi-dimensional.
+**Are features informative?** Tenure and income distributions shift across segments, but no single feature cleanly separates all four groups. This means a simple rule like "high income = segment A" won't work — the model needs to combine multiple features to draw meaningful boundaries.
 
 <p align="center">
   <img src="figures/fig3_boxplots.png" width="700"/>
@@ -41,19 +45,19 @@ Three questions before modeling:
 
 ### 3. Model Selection and Tuning
 
-**Baseline:** An unconstrained decision tree (depth 18) achieves only 33.5% CV accuracy — severe overfitting.
+**Baseline:** An unconstrained decision tree (depth 18) achieves only 33.5% cross-validation accuracy — severe overfitting. The model memorizes training data patterns that don't generalize to new customers.
 
-**Solution:** GridSearchCV over `max_depth`, `criterion`, `min_samples_split`, and `min_samples_leaf` with 5-fold cross-validation.
+**Solution:** A systematic search across tree parameters — how deep the tree can grow, how many customers must be in a group before it splits further, and which splitting rule to use — evaluated by testing the model on 5 different held-out slices of the training data (5-fold cross-validation). This prevents the search from selecting parameters that only look good on one lucky split.
 
 **Optimal parameters:**
-| Parameter | Value |
-|-----------|-------|
-| criterion | gini |
-| max_depth | 3 |
-| min_samples_leaf | 1 |
-| min_samples_split | 2 |
+| Parameter | What it controls | Value |
+|-----------|-----------------|-------|
+| criterion | Splitting rule (how the tree decides which feature to split on) | gini |
+| max_depth | Maximum number of sequential decisions | 3 |
+| min_samples_leaf | Minimum customers in any final group | 1 |
+| min_samples_split | Minimum customers required to create a new split | 2 |
 
-The validation curve confirms the bias-variance tradeoff — training accuracy climbs toward 100% while CV accuracy peaks at shallow depths then declines.
+The validation curve confirms the tradeoff between model complexity and real-world performance — training accuracy climbs toward 100% as the tree gets deeper (it memorizes the training data), while accuracy on unseen data peaks at shallow depths then declines.
 
 <p align="center">
   <img src="figures/fig5_validation_curve.png" width="600"/>
@@ -85,10 +89,10 @@ The resulting tree is compact enough to inspect every decision path:
 
 <p align="center">
   <img src="figures/fig8_feature_importance.png" width="600"/>
-  <br><em>Education (42%), tenure (39%), and income (14%) account for 95% of splits</em>
+  <br><em>Education (42%), tenure (39%), and income (14%) account for 95% of total feature importance</em>
 </p>
 
-Region, gender, and retirement status contribute zero importance — the tree ignores them entirely.
+Household size (`reside`) accounts for the remaining ~5%. The other 7 features — region, age, marital status, address length, employment years, retirement status, and gender — contribute zero importance. The tree ignores them entirely.
 
 <p align="center">
   <img src="figures/fig7_confusion_matrix.png" width="500"/>
@@ -97,7 +101,7 @@ Region, gender, and retirement status contribute zero importance — the tree ig
 
 <p align="center">
   <img src="figures/fig9_roc.png" width="600"/>
-  <br><em>ROC curves — AUC 0.61–0.68 across classes, consistently above random</em>
+  <br><em>ROC curves — AUC 0.61–0.68 across classes (1.0 = perfect, 0.5 = random guessing), consistently above random</em>
 </p>
 
 ## Key Takeaways
@@ -108,7 +112,7 @@ Region, gender, and retirement status contribute zero importance — the tree ig
 
 3. **Category B is the hardest segment to identify** (20% recall, 0.61 AUC). Any follow-up model should focus on what makes these customers distinct.
 
-4. **The shallow tree (depth 3) outperforms the deep tree (depth 18)** on held-out data — a textbook demonstration that model complexity without regularization destroys generalization.
+4. **A simpler, more constrained model outperformed the complex one** — the 3-level tree beats the 18-level tree on new data. More computation doesn't automatically mean better answers; disciplined constraints do.
 
 ## Next Steps
 
@@ -120,8 +124,8 @@ Region, gender, and retirement status contribute zero importance — the tree ig
 ## Tech Stack
 
 - Python 3, scikit-learn, pandas, NumPy, seaborn, matplotlib
-- GridSearchCV for hyperparameter optimization
-- Stratified train/test split with 5-fold cross-validation
+- GridSearchCV for systematic hyperparameter search
+- Stratified train/test split (preserving class proportions) with 5-fold cross-validation
 
 ## Project Structure
 
