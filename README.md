@@ -146,3 +146,9 @@ Household size (`reside`) accounts for the remaining ~5%. The other 7 features �
 │   └── fig9_roc.png
 └── README.md
 ```
+
+---
+
+## Related Project
+
+**[Telecom Customer Segmentation with K-Means and Hierarchical Clustering](https://github.com/iNoahCodeGuy/telecom_segmentation_Kmeans-)** — uses unsupervised clustering on the same dataset to discover customer segments without predefined labels. Comparing the two projects highlights when labeled data justifies a supervised approach vs. when unsupervised discovery is more appropriate: here, decision trees explain *why* customers belong to known categories, while K-Means reveals structure the labels may not capture.
